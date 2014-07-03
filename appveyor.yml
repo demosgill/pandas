@@ -1,0 +1,49 @@
+# Configuration file for AppVeyor continuous integration on Windows
+
+ os: Windows Server 2012
+
+ platform:
+   - x64
+
+ environment:
+   matrix:
+    - PYTHON: "C:/Python27"
+      PYTHON_VER: "2.7"
+      VS_BUILD: "9.0"
+    #- PYTHON: "C:/Python34"
+    #  PYTHON_VER: "3.4"
+    #  VS_BUILD: "10.0"
+
+ init:
+   - ps: "ls C:/Python*"
+   - ps: "ls C:/"
+   - ps: "pwd"
+   #- ps: "ls 'C:/Program Files/Microsoft SDKs/Windows/*'"
+   #- ps: "ls 'C:/Program Files (x86)/*'"
+   #- "ECHO %PATH%"
+
+ install:
+   - "ECHO %PYTHON%"
+   - "ECHO %PYTHON_VER%"
+   - setlocal EnableDelayedExpansion
+   - set MSSdk=1
+   - set DISTUTILS_USE_SDK=1
+   - set PATH=C:\Program Files (x86)\Microsoft Visual Studio %VS_BUILD%\VC\bin\x86_amd64;%PATH%
+   - "ECHO %PATH%"
+   - CALL "C:/Program Files/Microsoft SDKs/Windows/7.1/Bin/SetEnv.cmd" /x64 /release
+   - ps: Invoke-WebRequest "https://bootstrap.pypa.io/ez_setup.py" -OutFile "c:/ez_setup.py"
+   - ps: Invoke-WebRequest "https://bootstrap.pypa.io/get-pip.py" -OutFile "c:/get-pip.py"
+   - C:\Python27\python.exe c:\get-pip.py
+   - C:\Python27\Scripts\pip.exe install conda
+   - C:\Python27\Scripts\conda.exe init
+   - C:\Python27\Scripts\conda.exe config --add channels http://conda.binstar.org/omnia
+   - C:\Python27\Scripts\conda.exe create -n %PYTHON_VER% --yes --quiet python=%PYTHON_VER% dateutil pytz numpy numexpr pytables scipy cython pip nose
+
+ build_script:
+   - ps: "pwd"
+   - C:\Python27\envs\%PYTHON_VER%\python.exe setup.py build
+
+ test_script:
+   - ps: "pwd"
+   - cd build\lib.win32-%PYTHON_VER%
+   - C:\Python27\envs\%PYTHON_VER%\Scripts\nosetests -A "not slow and not disabled" pandas
