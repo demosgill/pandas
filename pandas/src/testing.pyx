@@ -1,6 +1,6 @@
 import numpy as np
 
-from pandas import compat
+from pandas import compat, lib
 from pandas.core.common import isnull
 
 cdef NUMERIC_TYPES = (
@@ -25,7 +25,7 @@ cdef bint is_comparable_as_number(obj):
     return isinstance(obj, NUMERIC_TYPES)
 
 cdef bint isiterable(obj):
-    return hasattr(obj, '__iter__')
+    return hasattr(obj, '__iter__') or lib.is_dynd_array_type(obj)
 
 cdef bint has_length(obj):
     return hasattr(obj, '__len__')
@@ -82,9 +82,11 @@ cpdef assert_almost_equal(a, b, bint check_less_precise=False):
         assert na == nb, (
             "Length of two iterators not the same: %r != %r" % (na, nb)
         )
-        if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
+        if lib.is_array_type(a) and lib.is_array_type(b):
             try:
-                if np.array_equal(a, b):
+                if lib.is_dynd_array_type(a) and lib.is_dynd_array_type(b):
+                    return a == b
+                elif np.array_equal(a, b):
                     return True
             except:
                 pass
@@ -140,6 +142,10 @@ cpdef assert_almost_equal(a, b, bint check_less_precise=False):
                     assert False, 'expected %.5f but got %.5f, with decimal %d' % (fb, fa, decimal)
 
     else:
+
+        # need a safe comparison here
+        if lib.is_safe_comparison_type(b):
+            b, a = a, b
         assert a == b, "%r != %r" % (a, b)
 
     return True

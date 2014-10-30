@@ -24,8 +24,8 @@ from pandas.core.common import (isnull, notnull, _values_from_object,
                                 is_bool_dtype, is_object_dtype,
                                 is_datetime64_dtype, is_timedelta64_dtype,
                                 is_datetime_or_timedelta_dtype,
-                                is_int_or_datetime_dtype, is_any_int_dtype)
-
+                                is_int_or_datetime_dtype, is_any_int_dtype,
+                                to_numpy_dtype)
 
 class disallow(object):
 
@@ -34,7 +34,7 @@ class disallow(object):
         self.dtypes = tuple(np.dtype(dtype).type for dtype in dtypes)
 
     def check(self, obj):
-        return hasattr(obj, 'dtype') and issubclass(obj.dtype.type,
+        return hasattr(obj, 'dtype') and issubclass(to_numpy_dtype(obj.dtype).type,
                                                     self.dtypes)
 
     def __call__(self, f):

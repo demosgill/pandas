@@ -2,6 +2,8 @@ dateutil=2.1
 pytz=2013b
 xlwt=0.7.5
 numpy=1.7.0
+dynd-python
+datashape
 cython=0.19.1
 numexpr=2.2.2
 pytables=3.0.0

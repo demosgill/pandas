@@ -32,7 +32,6 @@ _np_version = np.version.short_version
 _np_version_under1p8 = LooseVersion(_np_version) < '1.8'
 _np_version_under1p9 = LooseVersion(_np_version) < '1.9'
 
-
 from pandas.version import version as __version__
 from pandas.info import __doc__
 
@@ -60,5 +59,3 @@ from pandas.tools.tile import cut, qcut
 from pandas.core.reshape import melt
 from pandas.util.print_versions import show_versions
 import pandas.util.testing
-
-

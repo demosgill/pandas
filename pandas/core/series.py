@@ -21,7 +21,8 @@ from pandas.core.common import (isnull, notnull, is_bool_indexer,
                                 _possibly_convert_platform, _try_sort,
                                 ABCSparseArray, _maybe_match_name, _coerce_to_dtype,
                                 _ensure_object, SettingWithCopyError,
-                                _maybe_box_datetimelike, ABCDataFrame)
+                                _maybe_box_datetimelike, ABCDataFrame,
+                                to_numpy_dtype, is_numpy_array_type, is_array_type)
 from pandas.core.index import (Index, MultiIndex, InvalidIndexError,
                                _ensure_index)
 from pandas.core.indexing import check_bool_indexer, maybe_convert_indices
@@ -149,7 +150,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
 
                 data = data._to_embed(keep_tz=True)
                 copy = True
-            elif isinstance(data, np.ndarray):
+            elif is_array_type(data):
                 pass
             elif isinstance(data, Series):
                 if name is None:
@@ -485,21 +486,23 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             # dispatch to the values if we need
             values = self.values
             if isinstance(values, np.ndarray):
-                return _index.get_value_at(values, i)
+                result = _index.get_value_at(values, i)
             else:
-                return values[i]
+                result = values[i]
         except IndexError:
             raise
         except:
             if isinstance(i, slice):
                 indexer = self.index._convert_slice_indexer(i, kind='iloc')
-                return self._get_values(indexer)
+                result = self._get_values(indexer)
             else:
                 label = self.index[i]
                 if isinstance(label, Index):
-                    return self.take(i, axis=axis, convert=True)
+                    result = self.take(i, axis=axis, convert=True)
                 else:
-                    return _index.get_value_at(self, i)
+                    result = _index.get_value_at(self, i)
+
+        return lib.item_from_zerodim(result)
 
     @property
     def _is_mixed_type(self):
@@ -513,7 +516,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
         try:
             result = self.index.get_value(self, key)
 
-            if not np.isscalar(result):
+            if not lib.isscalar(result):
                 if is_list_like(result) and not isinstance(result, Series):
 
                     # we need to box if we have a non-unique index here
@@ -888,7 +891,8 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
         max_rows = (height if get_option("display.max_rows") == 0
                     else get_option("display.max_rows"))
 
-        self.to_string(buf=buf, name=self.name, dtype=self.dtype,
+        dtype = to_numpy_dtype(self.dtype)
+        self.to_string(buf=buf, name=self.name, dtype=dtype,
                        max_rows=max_rows)
         result = buf.getvalue()
 
@@ -898,6 +902,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
 
         namestr = u("Name: %s, ") % com.pprint_thing(
             self.name) if self.name is not None else ""
+        dtype = to_numpy_dtype(self.dtype)
 
         # time series
         if self.is_time_series:
@@ -909,17 +914,17 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             return u('%s%sLength: %d') % (freqstr, namestr, len(self))
 
         # Categorical
-        if com.is_categorical_dtype(self.dtype):
+        if com.is_categorical_dtype(dtype):
             level_info = self.values._repr_categories_info()
             return u('%sLength: %d, dtype: %s\n%s') % (namestr,
                                                        len(self),
-                                                       str(self.dtype.name),
+                                                       str(dtype.name),
                                                        level_info)
 
         # reg series
         return u('%sLength: %d, dtype: %s') % (namestr,
                                                len(self),
-                                               str(self.dtype.name))
+                                               str(dtype.name))
 
     def to_string(self, buf=None, na_rep='NaN', float_format=None, header=True,
                   length=False, dtype=False, name=False, max_rows=None):
@@ -2064,7 +2069,7 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
 
         """
         delegate = self.values
-        if isinstance(delegate, np.ndarray):
+        if is_array_type(delegate):
             # Validate that 'axis' is consistent with Series's single axis.
             self._get_axis_number(axis)
             if numeric_only:
@@ -2593,19 +2598,23 @@ def _sanitize_array(data, index, dtype=None, copy=False,
 
         try:
             arr = _possibly_cast_to_datetime(arr, dtype)
-            subarr = np.array(arr, dtype=dtype, copy=copy)
-        except (ValueError, TypeError):
+            subarr = com.ndarray_compat(arr,dtype=dtype, copy=copy)
+        except (ValueError, TypeError) as e:
             if com.is_categorical_dtype(dtype):
                 subarr = Categorical(arr)
             elif dtype is not None and raise_cast_failure:
-                raise
+                subarr = com.cast_compat(arr,
+                                         dtype=dtype,
+                                         copy=copy,
+                                         errors=e)
             else:
-                subarr = np.array(arr, dtype=object, copy=copy)
+                subarr = com.ndarray_compat(arr, dtype=object, copy=copy)
         return subarr
 
     # GH #846
-    if isinstance(data, (np.ndarray, Index, Series)):
-        subarr = np.array(data, copy=False)
+    if is_array_type(data) or isinstance(data, (Index, Series)):
+
+        subarr = com.ndarray_compat(data, copy=False)
         if dtype is not None:
 
             # possibility of nan -> garbage
@@ -2649,7 +2658,7 @@ def _sanitize_array(data, index, dtype=None, copy=False,
             except Exception:
                 if raise_cast_failure:  # pragma: no cover
                     raise
-                subarr = np.array(data, dtype=object, copy=copy)
+                subarr = com.ndarray_compat(data, dtype=object, copy=copy)
                 subarr = lib.maybe_convert_objects(subarr)
 
         else:
@@ -2663,7 +2672,7 @@ def _sanitize_array(data, index, dtype=None, copy=False,
     # scalar like
     if subarr.ndim == 0:
         if isinstance(data, list):  # pragma: no cover
-            subarr = np.array(data, dtype=object)
+            subarr = com.ndarray_compat(data, dtype=object)
         elif index is not None:
             value = data
 
@@ -2698,7 +2707,7 @@ def _sanitize_array(data, index, dtype=None, copy=False,
 
     # This is to prevent mixed-type Series getting all casted to
     # NumPy string type, e.g. NaN --> '-1#IND'.
-    if issubclass(subarr.dtype.type, compat.string_types):
+    if is_numpy_array_type(subarr) and issubclass(subarr.dtype.type, compat.string_types):
         subarr = np.array(data, dtype=object, copy=copy)
 
     return subarr

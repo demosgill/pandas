@@ -6,6 +6,15 @@ from numpy cimport *
 
 np.import_array()
 
+# DYND
+_DYND = False
+try:
+    from dynd import ndt, nd
+    import datashape
+    from datashape import dshape
+except ImportError:  # pragma: no cover
+    pass
+
 cdef extern from "numpy/arrayobject.h":
     cdef enum NPY_TYPES:
         NPY_intp "NPY_INTP"
@@ -30,7 +39,6 @@ cdef extern from "Python.h":
         PySliceObject* s, Py_ssize_t length,
         Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t *step,
         Py_ssize_t *slicelength) except -1
-
 
 
 cimport cpython
@@ -72,6 +80,31 @@ PyDateTime_IMPORT
 # initialize numpy
 import_array()
 import_ufunc()
+
+cpdef to_numpy_dtype(object arr_or_dtype):
+    """ return the numpy type from the array or dtype """
+
+    # numpy dtype
+    if isinstance(arr_or_dtype, np.dtype):
+        return arr_or_dtype
+
+    # categorical
+    try:
+        if arr_or_dtype == 'category':
+            return arr_or_dtype
+    except:
+        pass
+
+    # ndt
+    ds = arr_or_dtype.dshape
+
+    # not-implelemnted in dshape ATM
+    if ds in ["?void","void"]:
+        return np.dtype('object')
+
+    ds = dshape(ds).measure
+    ds = getattr(ds,'ty',ds)
+    return ds.to_numpy_dtype()
 
 def values_from_object(object o):
     """ return my values or the object if we are say an ndarray """
@@ -235,6 +268,31 @@ cpdef checknull_old(object val):
     else:
         return util._checknull(val)
 
+### array type checking ###
+cpdef is_array_type(obj):
+    # numpy or dynd array
+    return isinstance(obj, np.ndarray) or _DYND and isinstance(obj, nd.array)
+
+cpdef is_numpy_array_type(obj):
+    # numpy array only
+    return isinstance(obj, np.ndarray)
+
+cpdef is_numpy_dtype(obj):
+    # are we a np.dtype
+    return isinstance(obj, np.dtype)
+
+cpdef is_dynd_array_type(obj):
+    # dynd array only
+    return _DYND and isinstance(obj, nd.array)
+
+cpdef is_dynd_type(obj):
+    # are we a ndt
+    return _DYND and isinstance(obj, ndt.type)
+
+# safe comparison type
+cpdef is_safe_comparison_type(obj):
+    return is_dynd_type(obj)
+
 def isscalar(object val):
     """
     Return True if given value is scalar.
@@ -260,7 +318,7 @@ def isscalar(object val):
             or util.is_period_object(val))
 
 
-def item_from_zerodim(object val):
+cpdef item_from_zerodim(object val):
     """
     If the value is a zerodim array, return the item it contains.
 
@@ -276,6 +334,12 @@ def item_from_zerodim(object val):
     array([1])
 
     """
+    if _DYND and isinstance(val, nd.array) and val.ndim == 0:
+        val = nd.as_py(val)
+        if _checknull(val):
+            val = np.nan
+        return val
+
     return util.unbox_if_zerodim(val)
 
 

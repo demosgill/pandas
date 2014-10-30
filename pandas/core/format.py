@@ -185,7 +185,7 @@ class SeriesFormatter(object):
             footer += 'Length: %d' % len(self.series)
 
         if self.dtype is not False and self.dtype is not None:
-            name = getattr(self.tr_series.dtype, 'name', None)
+            name = getattr(com.to_numpy_dtype(self.tr_series.dtype), 'name', None)
             if name:
                 if footer:
                     footer += ', '
@@ -1863,13 +1863,13 @@ class ExcelFormatter(object):
 
 def format_array(values, formatter, float_format=None, na_rep='NaN',
                  digits=None, space=None, justify='right'):
-    if com.is_float_dtype(values.dtype):
+    if com.is_float_dtype(values):
         fmt_klass = FloatArrayFormatter
-    elif com.is_integer_dtype(values.dtype):
+    elif com.is_integer_dtype(values):
         fmt_klass = IntArrayFormatter
-    elif com.is_datetime64_dtype(values.dtype):
+    elif com.is_datetime64_dtype(values):
         fmt_klass = Datetime64Formatter
-    elif com.is_timedelta64_dtype(values.dtype):
+    elif com.is_timedelta64_dtype(values):
         fmt_klass = Timedelta64Formatter
     else:
         fmt_klass = GenericArrayFormatter
@@ -2009,15 +2009,27 @@ class FloatArrayFormatter(GenericArrayFormatter):
         return fmt_values
 
 
-class IntArrayFormatter(GenericArrayFormatter):
+class IntDefaultArrayFormatter(GenericArrayFormatter):
 
     def _format_strings(self):
         formatter = self.formatter or (lambda x: '% d' % x)
-
         fmt_values = [formatter(x) for x in self.values]
+        return fmt_values
+IntArrayFormatter = IntDefaultArrayFormatter
+
+class IntNAArrayFormatter(GenericArrayFormatter):
+
+    def _format_strings(self):
+
+        #### FIXME: once dynd supports boolean indexing, we can directly
+        # support this
+        nulls = com.isnull_compat(self.values)
+        values = com.as_py(self.values)
+        formatter = self.formatter or (lambda x: '% s' % x)
+        fmt_values = np.array([formatter(x) for x in values])
+        fmt_values[nulls] = formatter(self.na_rep)
 
         return fmt_values
-
 
 class Datetime64Formatter(GenericArrayFormatter):
     def __init__(self, values, nat_rep='NaT', date_format=None, **kwargs):

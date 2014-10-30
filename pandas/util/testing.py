@@ -24,7 +24,8 @@ import numpy as np
 from numpy.testing import assert_array_equal
 
 import pandas as pd
-from pandas.core.common import is_sequence, array_equivalent, is_list_like
+from pandas.core import common as com
+from pandas.core.common import is_sequence, is_list_like
 import pandas.core.index as index
 import pandas.core.series as series
 import pandas.core.frame as frame
@@ -545,6 +546,12 @@ def assert_equal(a, b, msg=""):
         ...
     AssertionError: 5.2 was really a dead parrot: 5.2 != 1.2
     """
+
+    # dynd can safely compare vs np.dtype
+    # but not the reverse
+    # https://github.com/libdynd/dynd-python/issues/208
+    if com.is_safe_comparison_type(b):
+        a, b = b, a
     assert a == b, "%s: %r != %r" % (msg.format(a,b), a, b)
 
 
@@ -625,11 +632,11 @@ def assertNotIsInstance(obj, cls, msg=''):
 
 
 def assert_categorical_equal(res, exp):
-    if not array_equivalent(res.categories, exp.categories):
+    if not com.array_equivalent(res.categories, exp.categories):
         raise AssertionError(
             'categories not equivalent: {0} vs {1}.'.format(res.categories,
                                                             exp.categories))
-    if not array_equivalent(res.codes, exp.codes):
+    if not com.array_equivalent(res.codes, exp.codes):
         raise AssertionError(
             'codes not equivalent: {0} vs {1}.'.format(res.codes, exp.codes))
 
@@ -668,11 +675,21 @@ def assert_numpy_array_equivalent(np_array, assert_equal, strict_nan=False):
     `np.nan` use this
     function.
     """
-    if array_equivalent(np_array, assert_equal, strict_nan=strict_nan):
+    if com.array_equivalent(np_array, assert_equal, strict_nan=strict_nan):
         return
     raise AssertionError(
         '{0} is not equivalent to {1}.'.format(np_array, assert_equal))
 
+def assert_array_equivalent(np_array, assert_equal, strict_nan=False):
+    """Checks that 'np_array' is equivalent to 'assert_equal'
+
+    Two numpy/dynd arrays are equivalent if the arrays have equal non-NaN elements,
+     and `np.nan` in corresponding locations.
+    """
+    if com.array_equivalent(np_array, assert_equal, strict_nan=strict_nan):
+        return
+    raise AssertionError(
+        '{0} is not equivalent to {1}.'.format(np_array, assert_equal))
 
 # This could be refactored to use the NDFrame.equals method
 def assert_series_equal(left, right, check_dtype=True,

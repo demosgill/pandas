@@ -21,7 +21,8 @@ from pandas.compat import map, zip, lrange, string_types, isidentifier, lmap
 from pandas.core.common import (isnull, notnull, is_list_like,
                                 _values_from_object, _maybe_promote,
                                 _maybe_box_datetimelike, ABCSeries,
-                                SettingWithCopyError, SettingWithCopyWarning)
+                                SettingWithCopyError, SettingWithCopyWarning,
+                                is_array_type)
 import pandas.core.nanops as nanops
 from pandas.util.decorators import Appender, Substitution, deprecate_kwarg
 from pandas.core import config
@@ -3319,12 +3320,12 @@ class NDFrame(PandasObject):
 
                 # try to set the same dtype as ourselves
                 try:
-                    new_other = np.array(other, dtype=self.dtype)
+                    new_other = com.ndarray_compat(other, dtype=self.dtype)
                 except ValueError:
-                    new_other = np.array(other)
+                    new_other = com.ndarray_compat(other)
 
-                if not (new_other == np.array(other)).all():
-                    other = np.array(other)
+                if not (new_other == com.ndarray_compat(other)).all():
+                    other = com.ndarray_compat(other)
 
                     # we can't use our existing dtype
                     # because of incompatibilities
@@ -3333,9 +3334,9 @@ class NDFrame(PandasObject):
                     other = new_other
             else:
 
-                other = np.array(other)
+                other = com.ndarray_compat(other)
 
-        if isinstance(other, np.ndarray):
+        if is_array_type(other):
 
             if other.shape != self.shape:
 
@@ -3346,7 +3347,7 @@ class NDFrame(PandasObject):
                     # GH 2745 / GH 4192
                     # treat like a scalar
                     if len(other) == 1:
-                        other = np.array(other[0])
+                        other = com.ndarray_compat(other[0])
 
                     # GH 3235
                     # match True cond to other
@@ -3367,7 +3368,7 @@ class NDFrame(PandasObject):
                         if not try_quick:
 
                             dtype, fill_value = _maybe_promote(other.dtype)
-                            new_other = np.empty(len(icond), dtype=dtype)
+                            new_other = com.empty_compat(len(icond), dtype=dtype)
                             new_other.fill(fill_value)
                             com._maybe_upcast_putmask(new_other, icond, other)
                             other = new_other

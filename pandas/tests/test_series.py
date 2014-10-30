@@ -486,6 +486,10 @@ class TestNanops(tm.TestCase):
 
     def test_nansum_buglet(self):
         s = Series([1.0, np.nan], index=[0, 1])
+
+        self.assertEqual(s.sum(), 1)
+        self.assertTrue(np.isnan(s.sum(skipna=False)))
+
         result = np.nansum(s)
         assert_almost_equal(result, 1)
 
@@ -904,6 +908,7 @@ class TestSeries(tm.TestCase, CheckNameIntegration):
         assert_series_equal(s, expected)
 
     def test_constructor_dict(self):
+
         d = {'a': 0., 'b': 1., 'c': 2.}
         result = Series(d, index=['b', 'c', 'd', 'a'])
         expected = Series([1, 2, nan, 0], index=['b', 'c', 'd', 'a'])
@@ -1288,6 +1293,7 @@ class TestSeries(tm.TestCase, CheckNameIntegration):
         assert_series_equal(result, expected)
 
     def test_getitem_dups(self):
+
         s = Series(range(5),index=['A','A','B','C','C'],dtype=np.int64)
         expected = Series([3,4],index=['C','C'],dtype=np.int64)
         result = s['C']
@@ -1627,6 +1633,7 @@ class TestSeries(tm.TestCase, CheckNameIntegration):
         assert_series_equal(result, self.series[:10])
 
     def test_where(self):
+
         s = Series(np.random.randn(5))
         cond = s > 0
 

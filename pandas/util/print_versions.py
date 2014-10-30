@@ -57,14 +57,19 @@ def show_versions(as_json=False):
     import imp
     sys_info = get_sys_info()
 
+
+    def get_libdynd(mod):
+        import dynd;
+        return dynd.__libdynd_version__
+
     deps = [
         # (MODULE_NAME, f(mod) -> mod version)
         ("pandas", lambda mod: mod.__version__),
         ("nose", lambda mod: mod.__version__),
         ("Cython", lambda mod: mod.__version__),
         ("numpy", lambda mod: mod.version.version),
-        ("dynd", lambda mod: "{dynd} [{libdynd}]".format(dynd=mod.__version__,
-                                                         libdynd=mod.__libdynd_version__)),
+        ("dynd", lambda mod: mod.__version__),
+        ("libdynd", get_libdynd),
         ("scipy", lambda mod: mod.version.version),
         ("statsmodels", lambda mod: mod.__version__),
         ("IPython", lambda mod: mod.__version__),
@@ -101,7 +106,11 @@ def show_versions(as_json=False):
             ver = ver_f(mod)
             deps_blob.append((modname, ver))
         except:
-            deps_blob.append((modname, None))
+            try:
+                ver = ver_f(mod)
+            except:
+                ver = None
+            deps_blob.append((modname, ver))
 
     if (as_json):
         # 2.6-safe
