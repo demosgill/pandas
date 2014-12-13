@@ -1,0 +1,8 @@
+dateutil
+pytz
+numpy
+cython
+numexpr
+bottleneck=0.8.0
+libdynd
+dynd-python

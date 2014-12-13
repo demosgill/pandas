@@ -45,6 +45,13 @@ matrix:
       - JOB_TAG=_SLOW
       - BUILD_TYPE=conda
       - JOB_NAME: "27_slow"
+    - python: 2.7
+      env:
+      - NOSE_ARGS="not slow and not network and not disabled"
+      - FULL_DEPS=true
+      - JOB_TAG=_DYND
+      - BUILD_TYPE=conda
+      - JOB_NAME: "27_DYND"
     - python: 3.3
       env:
       - NOSE_ARGS="not slow and not disabled"
@@ -115,6 +122,13 @@ matrix:
         - NUMPY_BUILD=master
         - BUILD_TYPE=pydata
         - PANDAS_TESTING_MODE="deprecate"
+      - python: 2.7
+        env:
+        - NOSE_ARGS="not slow and not network and not disabled"
+        - FULL_DEPS=true
+        - JOB_TAG=_DYND
+        - BUILD_TYPE=conda
+        - JOB_NAME: "27_DYND"
 
 before_install:
   - echo "before_install"
