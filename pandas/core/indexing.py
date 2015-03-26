@@ -254,7 +254,7 @@ class _NDFrameIndexer(object):
                     # just replacing the block manager here
                     # so the object is the same
                     index = self.obj._get_axis(i)
-                    labels = safe_append_to_index(index, key)
+                    labels = index.insert(len(index),key)
                     self.obj._data = self.obj.reindex_axis(labels, i)._data
                     self.obj._maybe_update_cacher(clear=True)
                     self.obj.is_copy=None
@@ -275,10 +275,7 @@ class _NDFrameIndexer(object):
                 # and set inplace
                 if self.ndim == 1:
                     index = self.obj.index
-                    if len(index) == 0:
-                        new_index = Index([indexer])
-                    else:
-                        new_index = safe_append_to_index(index, indexer)
+                    new_index = index.insert(len(index),indexer)
 
                     # this preserves dtype of the value
                     new_values = Series([value]).values
@@ -959,8 +956,9 @@ class _NDFrameIndexer(object):
                 # asarray can be unsafe, NumPy strings are weird
                 keyarr = _asarray_tuplesafe(key)
 
-            # handle a mixed integer scenario
-            indexer = labels._convert_list_indexer_for_mixed(keyarr, kind=self.name)
+            # have the index handle the indexer and possibly return
+            # an indexer or raising
+            indexer = labels._convert_list_indexer(keyarr, kind=self.name)
             if indexer is not None:
                 return self.obj.take(indexer, axis=axis)
 
@@ -1106,8 +1104,9 @@ class _NDFrameIndexer(object):
                 else:
                     objarr = _asarray_tuplesafe(obj)
 
-                # If have integer labels, defer to label-based indexing
-                indexer = labels._convert_list_indexer_for_mixed(objarr, kind=self.name)
+                # The index may want to handle a list indexer differently
+                # by returning an indexer or raising
+                indexer = labels._convert_list_indexer(objarr, kind=self.name)
                 if indexer is not None:
                     return indexer
 
@@ -1718,19 +1717,6 @@ def convert_from_missing_indexer_tuple(indexer, axes):
         return (axes[_i].get_loc(_idx['key'])
                 if isinstance(_idx, dict) else _idx)
     return tuple([get_indexer(_i, _idx) for _i, _idx in enumerate(indexer)])
-
-
-def safe_append_to_index(index, key):
-    """ a safe append to an index, if incorrect type, then catch and recreate
-    """
-    try:
-        return index.insert(len(index), key)
-    except:
-
-        # raise here as this is basically an unsafe operation and we want
-        # it to be obvious that you are doing something wrong
-        raise ValueError("unsafe appending to index of type {0} with a key "
-                         "{1}".format(index.__class__.__name__, key))
 
 
 def maybe_convert_indices(indices, n):

@@ -594,7 +594,77 @@ faster than fancy indexing.
    timeit ser.ix[indexer]
    timeit ser.take(indexer)
 
-.. _indexing.float64index:
+.. _indexing.categoricalindex:
+
+CategoricalIndex
+----------------
+
+.. versionadded:: 0.16.1
+
+We introduce a ``CategoricalIndex``, a new type of index object that is useful for supporting
+indexing with duplicates. This is a container around a ``Categorical`` (introduced in v0.15.0)
+and allows efficient indexing and storage of an index with a large number of duplicated elements. Prior to 0.16.1,
+setting the index of a ``DataFrame/Series`` with a ``category`` dtype would convert this to regular object-based ``Index``.
+
+.. ipython:: python
+
+   df = DataFrame({'A' : np.arange(6),
+                   'B' : Series(list('aabbca')).astype('category',
+                                                       categories=list('cab'))
+                  })
+   df
+   df.dtypes
+   df.B.cat.categories
+
+Setting the index, will create create a ``CategoricalIndex``
+
+.. ipython:: python
+
+   df2 = df.set_index('B')
+   df2.index
+
+Indexing works similarly to an ``Index`` with duplicates
+
+.. ipython:: python
+
+   df2.loc['a']
+
+   # and preserves the CategoricalIndex
+   df2.loc['a'].index
+
+Sorting will order by the order of the categories
+
+.. ipython:: python
+
+   df2.sort_index()
+
+Groupby operations on the index will preserve the index nature as well
+
+.. ipython:: python
+
+   df2.groupby(level=0).sum()
+   df2.groupby(level=0).sum().index
+
+.. warning::
+
+   Reshaping and Comparision operations on a ``CategoricalIndex`` must have the same categories
+   or a ``TypeError`` will be raised.
+
+   .. code-block:: python
+
+      In [10]: df3 = DataFrame({'A' : np.arange(6),
+                                'B' : Series(list('aabbca')).astype('category',
+                                                                    categories=list('abc'))
+                               }).set_index('B')
+
+      In [11]: df3.index
+      Out[11]:
+      CategoricalIndex([u'a', u'a', u'b', u'b', u'c', u'a'],
+                       categories=[u'a', u'b', u'c'],
+                       ordered=False)
+
+      In [12]: pd.concat([df2,df3]
+      TypeError: categories must match existing categories when appending
 
 Float64Index
 ------------
@@ -706,4 +776,3 @@ Of course if you need integer based selection, then use ``iloc``
 .. ipython:: python
 
    dfir.iloc[0:5]
-

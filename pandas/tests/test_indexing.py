@@ -4412,6 +4412,113 @@ class TestIndexing(tm.TestCase):
                                 lambda: s.ix[::0])
 
 
+
+class TestCategoricalIndex(tm.TestCase):
+
+    def setUp(self):
+
+        self.df = DataFrame({'A' : np.arange(6,dtype='int64'),
+                             'B' : Series(list('aabbca')).astype('category',categories=list('cab')) }).set_index('B')
+        self.df2 = DataFrame({'A' : np.arange(6,dtype='int64'),
+                              'B' : Series(list('aabbca')).astype('category',categories=list('cabe')) }).set_index('B')
+
+
+    def test_loc_scalar(self):
+
+        result = self.df.loc['a']
+        expected = DataFrame({'A' : [0,1,5],
+                              'B' : Series(list('aaa')).astype('category',categories=list('cab')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
+
+        df = self.df.copy()
+        df.loc['a'] = 20
+        expected = DataFrame({'A' : [20,20,2,3,4,20],
+                              'B' : Series(list('aabbca')).astype('category',categories=list('cab')) }).set_index('B')
+        assert_frame_equal(df, expected)
+
+        # value not in the categories
+        self.assertRaises(KeyError, lambda : df.loc['d'])
+
+        def f():
+            df.loc['d'] = 10
+        self.assertRaises(TypeError, f)
+
+        def f():
+            df.loc['d','A'] = 10
+        self.assertRaises(TypeError, f)
+
+        def f():
+            df.loc['d','C'] = 10
+        self.assertRaises(TypeError, f)
+
+    def test_loc_listlike(self):
+
+        # list of labels
+        result = self.df.loc[['c','a']]
+        expected = self.df.iloc[[4,0,1,5]]
+        assert_frame_equal(result, expected)
+
+        result = self.df2.loc[['a','b','e']]
+        expected = DataFrame({'A' : [0,1,5,2,3,np.nan],
+                              'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
+        ### FIXME: we lose the index name, not easy to fix this ###
+        # GH9748
+        expected.index.name = None
+        assert_frame_equal(result, expected)
+
+        # element in the categories but not in the values
+        self.assertRaises(KeyError, lambda : self.df2.loc['e'])
+
+        # assign is ok, but we lose the index name
+        # GH9748
+        df = self.df2.copy()
+        df.loc['e'] = 20
+        result = df.loc[['a','b','e']]
+        expected = DataFrame({'A' : [0,1,5,2,3,20],
+                              'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
+        # not all labels in the categories
+        self.assertRaises(KeyError, lambda : self.df2.loc[['a','d']])
+
+    def test_reindexing(self):
+
+        # reindexing
+        result = self.df2.reindex(['a','b','e'])
+        expected = DataFrame({'A' : [0,1,5,2,3,np.nan],
+                              'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
+        result = self.df2.reindex(['a','b'])
+        expected = DataFrame({'A' : [0,1,5,2,3],
+                              'B' : Series(list('aaabb')).astype('category',categories=list('cabe')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
+        result = self.df2.reindex(['e'])
+        expected = DataFrame({'A' : [np.nan],
+                              'B' : Series(['e']).astype('category',categories=list('cabe')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
+        def f():
+            self.df2.reindex(['d'])
+        self.assertRaises(KeyError, f)
+        def f():
+            self.df2.reindex(['a','d'])
+        self.assertRaises(KeyError, f)
+
+    def test_loc_slice(self):
+
+        # slicing
+        # not implemented ATM
+        # GH9748
+
+        self.assertRaises(TypeError, lambda : self.df.loc[1:5])
+
+        #result = df.loc[1:5]
+        #expected = df.iloc[[1,2,3,4]]
+        #assert_frame_equal(result, expected)
+
 class TestSeriesNoneCoercion(tm.TestCase):
     EXPECTED_RESULTS = [
         # For numeric series, we should coerce to NaN.
