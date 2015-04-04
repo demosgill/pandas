@@ -132,6 +132,71 @@ changes in this branch specific to one bug or feature so it is clear
 what the branch brings to *pandas*. You can have many shiny-new-features
 and switch in between them using the git checkout command.
 
+.. _contributing.dev_env:
+
+Creating a development environment
+----------------------------------
+
+An easy way to create a *pandas* development environment is as follows. First, install either :ref:`Install Anaconda <install-anaconda>` or :ref:`Install miniconda <install-miniconda>`.
+
+Tell ``conda`` to create a new environment, named ``pandas_dev``, or any name you would like for this environment by running:
+
+::
+
+      conda create -n pandas_dev pandas cython nose libpython
+
+
+For a python 3 environment
+
+::
+
+      conda create -n pandas_dev python=3 pandas cython nose libpython
+
+This will create the new environment, and not touch any of your existing environment, nor any existing python installation. It will install all of the basic dependencies of pandas, as well as the development and testing tools. If you would like to install other dependencies, you can install them as follows:
+
+::
+
+      conda install -n pandas_dev -c pandas pytables scipy
+
+To install *all* pandas dependencies you can do the following:
+
+::
+
+      conda install -n pandas_dev -c pandas --file ci/requirements.txt
+
+To work in this environment, ``activate`` it as follows:
+
+::
+
+      activate pandas_dev
+
+At which point, the prompt will change to indicate you are in the new development environment.
+
+.. note::
+
+   The above syntax is for ``windows`` environments. To work on ``macosx/linux``, use:
+
+   ::
+
+       source activate pandas_dev
+
+   Furthermore, ``libpython`` is only required on ``windows`` environments.
+
+To view your environments:
+
+::
+
+      conda info -e
+
+To return to you home root environment:
+
+::
+
+      deactivate
+
+See the full ``conda`` docs `here
+<http://conda.pydata.org/docs>`_.
+
 Making changes
 --------------
 
@@ -572,6 +637,3 @@ branch has not actually been merged.
 The branch will still exist on GitHub, so to delete it there do ::
 
     git push origin --delete shiny-new-feature
-
-
-
