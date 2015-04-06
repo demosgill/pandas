@@ -926,24 +926,6 @@ class _NDFrameIndexer(object):
 
         labels = self.obj._get_axis(axis)
 
-        def _reindex(keys, level=None):
-
-            try:
-                result = self.obj.reindex_axis(keys, axis=axis, level=level)
-            except AttributeError:
-                # Series
-                if axis != 0:
-                    raise AssertionError('axis must be 0')
-                return self.obj.reindex(keys, level=level)
-
-            # this is an error as we are trying to find
-            # keys in a multi-index that don't exist
-            if isinstance(labels, MultiIndex) and level is not None:
-                if hasattr(result,'ndim') and not np.prod(result.shape) and len(keys):
-                    raise KeyError("cannot index a multi-index axis with these keys")
-
-            return result
-
         if is_bool_indexer(key):
             key = check_bool_indexer(labels, key)
             inds, = key.nonzero()
@@ -969,65 +951,48 @@ class _NDFrameIndexer(object):
             else:
                 level = None
 
-            keyarr_is_unique = Index(keyarr).is_unique
+            # existing labels are unique and indexer are unique
+            if labels.is_unique and Index(keyarr).is_unique:
 
-            # existing labels are unique and indexer is unique
-            if labels.is_unique and keyarr_is_unique:
-                return _reindex(keyarr, level=level)
+                try:
+                    result = self.obj.reindex_axis(keyarr, axis=axis, level=level)
 
+                    # this is an error as we are trying to find
+                    # keys in a multi-index that don't exist
+                    if isinstance(labels, MultiIndex) and level is not None:
+                        if hasattr(result,'ndim') and not np.prod(result.shape) and len(keyarr):
+                            raise KeyError("cannot index a multi-index axis with these keys")
+
+                    return result
+
+                except AttributeError:
+
+                    # Series
+                    if axis != 0:
+                        raise AssertionError('axis must be 0')
+                    return self.obj.reindex(keyarr, level=level)
+
+            # existing labels are non-unique
             else:
-                indexer, missing = labels.get_indexer_non_unique(keyarr)
-                check = indexer != -1
-                result = self.obj.take(indexer[check], axis=axis,
-                                       convert=False)
 
-                # need to merge the result labels and the missing labels
-                if len(missing):
-                    l = np.arange(len(indexer))
+                # reindex with the specified axis
+                if axis + 1 > self.obj.ndim:
+                    raise AssertionError("invalid indexing error with "
+                                         "non-unique index")
 
-                    missing = com._ensure_platform_int(missing)
-                    missing_labels = keyarr.take(missing)
-                    missing_indexer = com._ensure_int64(l[~check])
-                    cur_labels = result._get_axis(axis).values
-                    cur_indexer = com._ensure_int64(l[check])
+                new_target, indexer, new_indexer = labels.reindex_non_unique(keyarr)
 
-                    new_labels = np.empty(tuple([len(indexer)]), dtype=object)
-                    new_labels[cur_indexer] = cur_labels
-                    new_labels[missing_indexer] = missing_labels
-
-                    # reindex with the specified axis
-                    ndim = self.obj.ndim
-                    if axis + 1 > ndim:
-                        raise AssertionError("invalid indexing error with "
-                                             "non-unique index")
-
-                    # a unique indexer
-                    if keyarr_is_unique:
-
-                        # see GH5553, make sure we use the right indexer
-                        new_indexer = np.arange(len(indexer))
-                        new_indexer[cur_indexer] = np.arange(
-                            len(result._get_axis(axis))
-                        )
-                        new_indexer[missing_indexer] = -1
-
-                    # we have a non_unique selector, need to use the original
-                    # indexer here
-                    else:
-
-                        # need to retake to have the same size as the indexer
-                        rindexer = indexer.values
-                        rindexer[~check] = 0
-                        result = self.obj.take(rindexer, axis=axis,
-                                               convert=False)
-
-                        # reset the new indexer to account for the new size
-                        new_indexer = np.arange(len(result))
-                        new_indexer[~check] = -1
+                if new_indexer is not None:
+                    result = self.obj.take(indexer[indexer!=-1], axis=axis,
+                                           convert=False)
 
                     result = result._reindex_with_indexers({
-                        axis: [new_labels, new_indexer]
-                    }, copy=True, allow_dups=True)
+                        axis: [new_target, new_indexer]
+                        }, copy=True, allow_dups=True)
+
+                else:
+                    result = self.obj.take(indexer, axis=axis,
+                                           convert=False)
 
                 return result
 

@@ -2366,6 +2366,7 @@ class TestIndexing(tm.TestCase):
 
         rows = ['C','B','E']
         expected = DataFrame({'test' : [11,9,np.nan], 'test1': [7.,6,np.nan], 'other': ['d','c',np.nan]},index=rows)
+
         result = df.ix[rows]
         assert_frame_equal(result, expected)
 
@@ -4462,22 +4463,25 @@ class TestCategoricalIndex(tm.TestCase):
         result = self.df2.loc[['a','b','e']]
         expected = DataFrame({'A' : [0,1,5,2,3,np.nan],
                               'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
-        ### FIXME: we lose the index name, not easy to fix this ###
-        # GH9748
-        expected.index.name = None
         assert_frame_equal(result, expected)
 
         # element in the categories but not in the values
         self.assertRaises(KeyError, lambda : self.df2.loc['e'])
 
-        # assign is ok, but we lose the index name
-        # GH9748
+        # assign is ok
         df = self.df2.copy()
         df.loc['e'] = 20
         result = df.loc[['a','b','e']]
         expected = DataFrame({'A' : [0,1,5,2,3,20],
                               'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
         assert_frame_equal(result, expected)
+
+        df = self.df2.copy()
+        result = df.loc[['a','b','e']]
+        expected = DataFrame({'A' : [0,1,5,2,3,np.nan],
+                              'B' : Series(list('aaabbe')).astype('category',categories=list('cabe')) }).set_index('B')
+        assert_frame_equal(result, expected)
+
 
         # not all labels in the categories
         self.assertRaises(KeyError, lambda : self.df2.loc[['a','d']])
