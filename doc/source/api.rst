@@ -1233,6 +1233,7 @@ Modifying and Computations
    Index.max
    Index.order
    Index.reindex
+   Index.reindex_non_unique
    Index.repeat
    Index.take
    Index.putmask

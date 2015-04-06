@@ -2850,9 +2850,7 @@ class CategoricalIndex(Index, PandasDelegate):
         return indexer
 
     def can_reindex(self, indexer):
-        """ always allow reindexing, except when we have missing values """
-        #if indexer[indexer==-1].any():
-        #    raise KeyError("cannot reindex to values that are not in the categories")
+        """ always allow reindexing """
         pass
 
     def reindex(self, target, method=None, level=None, limit=None):
@@ -2996,7 +2994,6 @@ class CategoricalIndex(Index, PandasDelegate):
         if (code == -1):
             raise TypeError("cannot insert an item into a CategoricalIndex that is not already an existing category")
 
-        from pandas import Categorical
         codes = self.codes
         codes = np.concatenate(
             (codes[:loc], code, codes[loc:]))
@@ -3018,13 +3015,10 @@ class CategoricalIndex(Index, PandasDelegate):
         ------
         ValueError if other is not in the categories
         """
-        from pandas import Categorical
-        categories = self.categories
         to_concat, name = self._ensure_compat_append(other)
-
         to_concat = [ self._is_dtype_compat(c) for c in to_concat ]
         codes = np.concatenate([ c.codes for c in to_concat ])
-        return self._create_from_codes(codes, categories=categories, name=name)
+        return self._create_from_codes(codes, name=name)
 
     @classmethod
     def _add_comparison_methods(cls):
@@ -3034,20 +3028,15 @@ class CategoricalIndex(Index, PandasDelegate):
 
             def _evaluate_compare(self, other):
 
-                def validate(cat):
-                    if not self.values.is_dtype_equal(cat):
-                        raise TypeError("categorical index comparisions must have the same categories and ordered attributes")
-
                 # if we have a Categorical type, then must have the same categories
                 if isinstance(other, CategoricalIndex):
                     other = other.values
-                    validate(other)
-                elif isinstance(other, ABCCategorical):
-                    validate(other)
                 elif isinstance(other, Index):
                     other = self._create_categorical(self, other.values, categories=self.categories, ordered=self.ordered)
-                    if any(isnull(other)):
-                        raise TypeError("cannot compare versus non-convertible Index type")
+
+                if isinstance(other, ABCCategorical):
+                    if not (self.values.is_dtype_equal(other) and len(self.values) == len(other)):
+                        raise TypeError("categorical index comparisions must have the same categories and ordered attributes")
 
                 return getattr(self.values, op)(other)
 
